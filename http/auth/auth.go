@@ -39,6 +39,7 @@ type Auther interface {
 	Check(user, pass string) (interface{}, error)
 }
 
+// Handler exposes helper functions to login/authorize, logout and authenticate http requests.
 type Handler struct {
 	auther Auther
 	store  sessions.Store
@@ -56,6 +57,7 @@ type Handler struct {
 	sessionName string
 }
 
+// NewHandler returns a configured Handler value, using the passed Auther and options.
 func NewHandler(a Auther, options ...Option) (*Handler, error) {
 	var ah Handler
 	ah.auther = a
@@ -102,7 +104,8 @@ func NewHandler(a Auther, options ...Option) (*Handler, error) {
 	return &ah, nil
 }
 
-// Authorize is a handlerFunc
+// Authorize is a http.HandlerFunc to authorize a login POST request (with form fields user and pass)
+// and passes them to the configured Auther to check them before the return value is saved in the configured session store.
 func (ah Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		code := http.StatusBadRequest
@@ -142,7 +145,7 @@ func (ah Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// SaveUserSession a way to manually Authorize a session and create a cookie
+// SaveUserSession a way to manually Authorize a session and create a cookie for a user.
 func (ah Handler) SaveUserSession(r *http.Request, w http.ResponseWriter, userData interface{}) error {
 	session, err := ah.store.Get(r, ah.sessionName)
 	if err != nil {
@@ -158,17 +161,20 @@ func (ah Handler) SaveUserSession(r *http.Request, w http.ResponseWriter, userDa
 	return nil
 }
 
-func (ah Handler) Authenticate(h http.Handler) http.Handler {
+// Authenticate calls the next unless AuthenticateRequest returns an error
+func (ah Handler) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, err := ah.AuthenticateRequest(r); err != nil {
 			ah.notAuthorizedHandler.ServeHTTP(w, r)
 			return
 		}
 
-		h.ServeHTTP(w, r)
+		next.ServeHTTP(w, r)
 	})
 }
 
+// AuthenticateRequest uses the passed request to load and return the session data that was stored previously.
+// If it is invalid or there is no session, it will return ErrNotAuthorized.
 func (ah Handler) AuthenticateRequest(r *http.Request) (interface{}, error) {
 	session, err := ah.store.Get(r, ah.sessionName)
 	if err != nil {
@@ -201,6 +207,7 @@ func (ah Handler) AuthenticateRequest(r *http.Request) (interface{}, error) {
 	return user, nil
 }
 
+// Logout destroys the session data and updates the cookie with an invalidated one.
 func (ah Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session, err := ah.store.Get(r, ah.sessionName)
 	if err != nil {
