@@ -13,7 +13,7 @@ func TestUnauthorized(t *testing.T) {
 	defer teardown()
 	a := assert.New(t)
 
-	resp := testClient.GetBody("/profile", nil)
+	resp := testClient.GetBody("/profile")
 	a.Equal(http.StatusUnauthorized, resp.Code)
 	a.NotEqual(0, resp.Body.Len())
 }
@@ -96,7 +96,8 @@ func TestLogin_workingLoginAndRestrictedAcc(t *testing.T) {
 	newCookie := resp.Header().Get("Set-Cookie")
 	a.Contains(newCookie, defaultSessionName)
 
-	resp2 := testClient.GetBody("/profile", &http.Header{"Cookie": []string{newCookie}})
+	testClient.SetHeaders(http.Header{"Cookie": []string{newCookie}})
+	resp2 := testClient.GetBody("/profile")
 	a.Equal(http.StatusOK, resp2.Code)
 }
 
@@ -123,13 +124,16 @@ func TestLogin_workingLoginAndLogout(t *testing.T) {
 	newCookie := resp.Header().Get("Set-Cookie")
 	a.Contains(newCookie, defaultSessionName)
 
-	resp2 := testClient.GetBody("/logout", &http.Header{"Cookie": []string{newCookie}})
+	testClient.SetHeaders(http.Header{"Cookie": []string{newCookie}})
+	resp2 := testClient.GetBody("/logout")
 	logoutCookie := resp2.Header().Get("Set-Cookie")
 	a.Equal("/landingRedir", resp2.Header().Get("Location"))
 	a.NotEqual("", logoutCookie)
 	a.NotEqual(newCookie, logoutCookie)
 
-	resp3 := testClient.GetBody("/profile", &http.Header{"Cookie": []string{logoutCookie}})
+	testClient.ClearHeaders()
+	testClient.SetHeaders(http.Header{"Cookie": []string{logoutCookie}})
+	resp3 := testClient.GetBody("/profile")
 	a.Equal(http.StatusUnauthorized, resp3.Code)
 	a.Equal("Not Authorized\n", resp3.Body.String(), "Body %q", resp3.Body.String())
 }
