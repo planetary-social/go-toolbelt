@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -101,12 +102,15 @@ func NewHandler(a Auther, options ...Option) (*Handler, error) {
 	return &ah, nil
 }
 
+// Authorize is a handlerFunc
 func (ah Handler) Authorize(w http.ResponseWriter, r *http.Request) {
-	session, err := ah.store.Get(r, ah.sessionName)
-	if err != nil {
-		ah.errorHandler(w, r, err, http.StatusInternalServerError)
+	if r.Method != "POST" {
+		code := http.StatusBadRequest
+		err := fmt.Errorf("method should be POST")
+		ah.errorHandler(w, r, err, code)
 		return
 	}
+
 	if err := r.ParseForm(); err != nil {
 		ah.errorHandler(w, r, err, http.StatusInternalServerError)
 		return
@@ -129,15 +133,29 @@ func (ah Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session.Values[userKey] = id
-	session.Values[userTimeout] = time.Now().Add(ah.lifetime)
-	if err := session.Save(r, w); err != nil {
+	if err := ah.SaveUserSession(r, w, id); err != nil {
 		ah.errorHandler(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
 	http.Redirect(w, r, ah.redirLanding, http.StatusSeeOther)
 	return
+}
+
+// SaveUserSession a way to manually Authorize a session and create a cookie
+func (ah Handler) SaveUserSession(r *http.Request, w http.ResponseWriter, userData interface{}) error {
+	session, err := ah.store.Get(r, ah.sessionName)
+	if err != nil {
+		return err
+	}
+
+	session.Values[userKey] = userData
+	session.Values[userTimeout] = time.Now().Add(ah.lifetime)
+	if err := session.Save(r, w); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (ah Handler) Authenticate(h http.Handler) http.Handler {
