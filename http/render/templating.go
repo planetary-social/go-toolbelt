@@ -25,6 +25,8 @@ type Renderer struct {
 	baseTemplates []string
 	errorTemplate string
 
+	errHandler ErrorHandlerFunc
+
 	funcMap template.FuncMap
 
 	tplFuncInjectors map[string]FuncInjector
@@ -68,6 +70,10 @@ func New(fs http.FileSystem, opts ...Option) (*Renderer, error) {
 		r.errorTemplate = "/error.tmpl"
 	}
 
+	if r.errHandler == nil {
+		r.errHandler = r.defaultErrhandler
+	}
+
 	return r, r.parseHTMLTemplates()
 }
 
@@ -78,7 +84,7 @@ func (r *Renderer) GetReloader() func(http.Handler) http.Handler {
 			if err := r.Reload(); err != nil {
 				level.Error(r.log).Log("event", "reload failed", "err", err)
 				err = fmt.Errorf("render: could not reload templates: %w", err)
-				r.Error(rw, req, http.StatusInternalServerError, err)
+				r.errHandler(rw, req, http.StatusInternalServerError, err)
 				return
 			}
 			next.ServeHTTP(rw, req)
@@ -106,13 +112,12 @@ func (r *Renderer) HTML(name string, f RenderFunc) http.HandlerFunc {
 		data, err := f(w, req)
 		if err != nil {
 			level.Error(r.log).Log("event", "handler failed", "err", err)
-			r.Error(w, req, http.StatusInternalServerError, err)
+			r.errHandler(w, req, http.StatusInternalServerError, err)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html")
 		if err := r.Render(w, req, name, http.StatusOK, data); err != nil {
 			level.Error(r.log).Log("event", "HTML render failed", "err", err)
-			r.Error(w, req, http.StatusInternalServerError, err)
+			r.errHandler(w, req, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -123,7 +128,7 @@ func (r *Renderer) StaticHTML(name string) http.Handler {
 		err := r.Render(w, req, name, http.StatusOK, nil)
 		if err != nil {
 			level.Error(r.log).Log("msg", "static HTML failed", "err", err)
-			r.Error(w, req, http.StatusInternalServerError, err)
+			r.errHandler(w, req, http.StatusInternalServerError, err)
 		}
 	})
 }
@@ -176,6 +181,10 @@ func (r *Renderer) Render(w http.ResponseWriter, req *http.Request, name string,
 }
 
 func (r *Renderer) Error(w http.ResponseWriter, req *http.Request, status int, err error) {
+	r.errHandler(w, req, status, err)
+}
+
+func (r *Renderer) defaultErrhandler(w http.ResponseWriter, req *http.Request, status int, err error) {
 	r.logError(req, err, nil)
 	w.Header().Set("cache-control", "no-cache")
 	err2 := r.Render(w, req, r.errorTemplate, status, map[string]interface{}{

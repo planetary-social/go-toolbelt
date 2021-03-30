@@ -44,8 +44,12 @@ func FuncMap(m template.FuncMap) Option {
 	}
 }
 
+// FuncInjector needs to return a function that is admissible for (html/template).FuncMap
 type FuncInjector func(*http.Request) interface{}
 
+// InjectTemplateFunc sets template functions, just like FuncMap.
+// But in comparrison, these here are evaluated once with the request before being assigned to the template.
+// This allows for accessing the requests cookies or headers, for instance.
 func InjectTemplateFunc(name string, fn FuncInjector) Option {
 	return func(r *Renderer) error {
 		if _, has := r.tplFuncInjectors[name]; has {
@@ -62,6 +66,20 @@ func SetLogger(l log.Logger) Option {
 			return errors.New("render: nil logger passed")
 		}
 		r.log = l
+		return nil
+	}
+}
+
+// ErrorHandlerFunc is just like http.HandlerFunc but with an additional status code and error
+type ErrorHandlerFunc func(http.ResponseWriter, *http.Request, int, error)
+
+// overwrites the default error handler and allows for inspecting errors before rendering them
+func SetErrorHandler(fn ErrorHandlerFunc) Option {
+	return func(r *Renderer) error {
+		if fn == nil {
+			return errors.New("render: nil ErrorHandlerFunc passed")
+		}
+		r.errHandler = fn
 		return nil
 	}
 }

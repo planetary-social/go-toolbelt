@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/PuerkitoBio/goquery"
 	"go.mindeco.de/logging"
 	"go.mindeco.de/logging/logtest"
@@ -200,4 +202,41 @@ func TestFuncInjection(t *testing.T) {
 	if ex := doc.Find("#addr").Text(); ex != "localhost:1234" {
 		t.Fatalf("wrong ex. got: %s", ex)
 	}
+}
+
+func TestRenderWithCustomError(t *testing.T) {
+	a := assert.New(t)
+	logging.SetupLogging(logtest.Logger("Render", t))
+	log := logging.Logger("TestRender")
+
+	var called = false
+	errHandler := func(rw http.ResponseWriter, req *http.Request, status int, err error) {
+		called = true
+		http.Error(rw, "that's fine", http.StatusTeapot)
+	}
+
+	r, err := New(http.Dir("tests"),
+		AddTemplates("test-with-error.tmpl"),
+		SetLogger(log),
+		SetErrorHandler(errHandler),
+	)
+	if err != nil {
+		t.Fatal("New() failed", err)
+	}
+	rw := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// template tries to render {{.FooIsNotHere}}
+	// handler := r.StaticHTML("test-with-error.tmpl")
+	handler := r.HTML("test-with-error.tmpl", func(rw http.ResponseWriter, req *http.Request) (interface{}, error) {
+		return struct{}{}, nil
+	})
+	handler.ServeHTTP(rw, req)
+
+	a.True(called, "error handler not called")
+	a.Equal(http.StatusTeapot, rw.Code, "wrong status")
+	a.Equal("that's fine\n", rw.Body.String(), "wrong body")
 }
