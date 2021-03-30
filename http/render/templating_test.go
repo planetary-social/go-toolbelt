@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -230,7 +231,6 @@ func TestRenderWithCustomError(t *testing.T) {
 	}
 
 	// template tries to render {{.FooIsNotHere}}
-	// handler := r.StaticHTML("test-with-error.tmpl")
 	handler := r.HTML("test-with-error.tmpl", func(rw http.ResponseWriter, req *http.Request) (interface{}, error) {
 		return struct{}{}, nil
 	})
@@ -239,4 +239,41 @@ func TestRenderWithCustomError(t *testing.T) {
 	a.True(called, "error handler not called")
 	a.Equal(http.StatusTeapot, rw.Code, "wrong status")
 	a.Equal("that's fine\n", rw.Body.String(), "wrong body")
+}
+
+func TestRenderWithCustomErrorReturned(t *testing.T) {
+	a := assert.New(t)
+	logging.SetupLogging(logtest.Logger("Render", t))
+	log := logging.Logger("TestRender")
+
+	var customError = fmt.Errorf("hello from %s", t.Name())
+	var yup = false
+	errHandler := func(rw http.ResponseWriter, req *http.Request, status int, err error) {
+		yup = a.Equal(customError, err)
+		http.Error(rw, "testing", status)
+	}
+
+	r, err := New(http.Dir("tests"),
+		AddTemplates("test1.tmpl"),
+		SetLogger(log),
+		SetErrorHandler(errHandler),
+	)
+	if err != nil {
+		t.Fatal("New() failed", err)
+	}
+	rw := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// template is fine but fn returns an error
+	handler := r.HTML("test1.tmpl", func(rw http.ResponseWriter, req *http.Request) (interface{}, error) {
+		return nil, customError
+	})
+	handler.ServeHTTP(rw, req)
+
+	a.True(yup, "error handler received wrong error")
+	a.Equal(http.StatusInternalServerError, rw.Code, "wrong status")
+	a.Equal("testing\n", rw.Body.String(), "wrong body")
 }
