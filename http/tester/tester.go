@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -18,6 +19,8 @@ type Tester struct {
 	mux http.Handler
 	t   *testing.T
 
+	jar *cookiejar.Jar
+
 	extraHeaders http.Header
 }
 
@@ -26,6 +29,12 @@ func New(mux *http.ServeMux, t *testing.T) *Tester {
 	tester := Tester{
 		mux: logging.InjectHandler(l)(mux),
 		t:   t,
+	}
+
+	var err error
+	tester.jar, err = cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	tester.ClearHeaders()
@@ -45,44 +54,69 @@ func (t *Tester) SetHeaders(h http.Header) {
 	}
 }
 
-func (t *Tester) GetHTML(u string) (*goquery.Document, *httptest.ResponseRecorder) {
-	req, err := http.NewRequest("GET", u, nil)
+func (t *Tester) ClearCookies() {
+	var err error
+	t.jar, err = cookiejar.New(nil)
+	if err != nil {
+		t.t.Fatal("failed to clear cookies:", err)
+	}
+}
+
+func (t *Tester) constructHeader(h *http.Header, u *url.URL) {
+	*h = t.extraHeaders.Clone()
+
+	cookies := t.jar.Cookies(u)
+	for _, c := range cookies {
+		cstr := c.String()
+		h.Add("Cookie", cstr)
+	}
+}
+
+func (t *Tester) GetHTML(u *url.URL) (*goquery.Document, *httptest.ResponseRecorder) {
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		t.t.Fatal(err)
 	}
-	req.Header = t.extraHeaders.Clone()
+	t.constructHeader(&req.Header, u)
 
 	rw := httptest.NewRecorder()
 	t.mux.ServeHTTP(rw, req)
+
+	t.jar.SetCookies(u, rw.Result().Cookies())
 
 	doc, err := goquery.NewDocumentFromReader(rw.Body)
 	if err != nil {
 		t.t.Fatal(err)
 	}
+
 	return doc, rw
 }
 
-func (t *Tester) GetBody(u string) (rw *httptest.ResponseRecorder) {
-	req, err := http.NewRequest("GET", u, nil)
+func (t *Tester) GetBody(u *url.URL) (rw *httptest.ResponseRecorder) {
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		t.t.Fatal(err)
 	}
-	req.Header = t.extraHeaders.Clone()
+	t.constructHeader(&req.Header, u)
 
 	rw = httptest.NewRecorder()
 	t.mux.ServeHTTP(rw, req)
+
+	t.jar.SetCookies(u, rw.Result().Cookies())
 	return
 }
 
-func (t *Tester) GetJSON(u string, v interface{}) (rw *httptest.ResponseRecorder) {
-	req, err := http.NewRequest("GET", u, nil)
+func (t *Tester) GetJSON(u *url.URL, v interface{}) (rw *httptest.ResponseRecorder) {
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		t.t.Fatal(err)
 	}
-	req.Header = t.extraHeaders.Clone()
+	t.constructHeader(&req.Header, u)
 
 	rw = httptest.NewRecorder()
 	t.mux.ServeHTTP(rw, req)
+	t.jar.SetCookies(u, rw.Result().Cookies())
+
 	body := rw.Body.Bytes()
 	if rw.Code == 200 {
 		if err = json.Unmarshal(body, v); err != nil {
@@ -94,33 +128,36 @@ func (t *Tester) GetJSON(u string, v interface{}) (rw *httptest.ResponseRecorder
 	return
 }
 
-func (t *Tester) SendJSON(u string, v interface{}) (rw *httptest.ResponseRecorder) {
+func (t *Tester) SendJSON(u *url.URL, v interface{}) (rw *httptest.ResponseRecorder) {
 	blob, err := json.Marshal(v)
 	if err != nil {
 		t.t.Fatal(err)
 	}
 
-	req, err := http.NewRequest("POST", u, bytes.NewReader(blob))
+	req, err := http.NewRequest("POST", u.String(), bytes.NewReader(blob))
 	if err != nil {
 		t.t.Fatal(err)
 	}
-	req.Header = t.extraHeaders.Clone()
+	t.constructHeader(&req.Header, u)
+
 	req.Header.Set("Content-Type", "application/json")
 
 	rw = httptest.NewRecorder()
 	t.mux.ServeHTTP(rw, req)
+	t.jar.SetCookies(u, rw.Result().Cookies())
 	return
 }
 
-func (t *Tester) PostForm(u string, v url.Values) (rw *httptest.ResponseRecorder) {
-	req, err := http.NewRequest("POST", u, strings.NewReader(v.Encode()))
+func (t *Tester) PostForm(u *url.URL, v url.Values) (rw *httptest.ResponseRecorder) {
+	req, err := http.NewRequest("POST", u.String(), strings.NewReader(v.Encode()))
 	if err != nil {
 		t.t.Fatal(err)
 	}
-	req.Header = t.extraHeaders.Clone()
+	t.constructHeader(&req.Header, u)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	rw = httptest.NewRecorder()
 	t.mux.ServeHTTP(rw, req)
+	t.jar.SetCookies(u, rw.Result().Cookies())
 	return
 }
