@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"io"
 
-	kitlog "github.com/go-kit/kit/log"
+	kitlog "go.mindeco.de/log"
 )
 
 // Writer returns a writer which logs each line that is written to it using a bufio.Scanner

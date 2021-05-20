@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/oxtoacart/bpool"
 	"github.com/shurcooL/httpfs/html/vfstemplate"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 )
 
@@ -111,6 +111,7 @@ func (r *Renderer) HTML(name string, f RenderFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		data, err := f(w, req)
 		if err != nil {
+			fmt.Println("rendere func failed:", err)
 			level.Error(r.log).Log("event", "handler failed", "err", err)
 			r.errHandler(w, req, http.StatusInternalServerError, err)
 			return
@@ -185,6 +186,7 @@ func (r *Renderer) Error(w http.ResponseWriter, req *http.Request, status int, e
 }
 
 func (r *Renderer) defaultErrhandler(w http.ResponseWriter, req *http.Request, status int, err error) {
+	fmt.Println("using defaultErrhandler")
 	r.logError(req, err, nil)
 	w.Header().Set("cache-control", "no-cache")
 	err2 := r.Render(w, req, r.errorTemplate, status, map[string]interface{}{

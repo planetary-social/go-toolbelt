@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/go-kit/kit/log"
+	"go.mindeco.de/log"
 )
 
 type Option func(*Renderer) error

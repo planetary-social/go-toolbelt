@@ -6,8 +6,8 @@ import (
 	stdlog "log"
 	"os"
 
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
+	kitlog "go.mindeco.de/log"
 )
 
 var closeChan chan<- os.Signal

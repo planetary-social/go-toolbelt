@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/go-kit/kit/log"
+	"go.mindeco.de/log"
 )
 
 // Logger logs every line it is written to it. t.Log(prefix: line)

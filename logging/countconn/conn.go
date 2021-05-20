@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/go-kit/kit/log"
+
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 )
 
 type Conn struct {
@@ -27,7 +29,7 @@ func WrapConn(logger log.Logger, c net.Conn) net.Conn {
 }
 
 func (c *Conn) Close() error {
-	c.logger.Log("conn", "closed",
+	level.Info(c.logger).Log("conn", "closed",
 		"local", c.conn.LocalAddr().String(),
 		"remote", c.conn.RemoteAddr(),
 		"tx", humanize.Bytes(uint64(c.Writer.N())),

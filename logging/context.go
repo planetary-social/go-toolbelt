@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	kitlog "github.com/go-kit/kit/log"
+	kitlog "go.mindeco.de/log"
 )
 
 type logctxKeyT string

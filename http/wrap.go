@@ -3,7 +3,7 @@ package http
 import (
 	"net/http"
 
-	kitlog "github.com/go-kit/kit/log"
+	kitlog "go.mindeco.de/log"
 )
 
 type MiddlewareFunc func(next http.Handler) http.Handler
