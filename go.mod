@@ -4,7 +4,6 @@ require (
 	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
-	github.com/go-kit/kit v0.8.0
 	github.com/go-logfmt/logfmt v0.4.0
 	github.com/go-stack/stack v1.8.0
 	github.com/gorilla/securecookie v1.1.1
@@ -14,6 +13,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/shurcooL/httpfs v0.0.0-20190527155220-6a4d4a70508b
 	github.com/stretchr/testify v1.3.0
+	golang.org/x/tools v0.1.1 // indirect
 )
 
 go 1.13
