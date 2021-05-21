@@ -53,9 +53,6 @@ func SetupLogging(w io.Writer) {
 		return
 	}
 
-	if lvl := os.Getenv("CRYPTIX_LOGLVL"); lvl != "" {
-		logger.Log("module", "logging", "error", "CRYPTIX_LOGLVL is obsolete. levels are bad, mkay?")
-	}
 	// wrap logger to error-check the writes only once
 	internal = kitlog.LoggerFunc(func(keyvals ...interface{}) error {
 		if err := logger.Log(keyvals...); err != nil {

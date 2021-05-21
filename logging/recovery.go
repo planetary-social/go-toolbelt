@@ -25,7 +25,7 @@ func RecoveryHandler() func(http.Handler) http.Handler {
 						fmt.Fprintf(os.Stderr, "PanicLog failed! %q", err)
 						panic(err)
 					}
-					http.Error(w, "internal processing error - please try again", http.StatusInternalServerError)
+					http.Error(w, "internal processing failure - error has been reported", http.StatusInternalServerError)
 				}
 			}()
 			next.ServeHTTP(w, req)
@@ -60,8 +60,7 @@ func LogPanicWithStack(log Interface, location string, r interface{}, vals ...in
 	}
 	fmt.Fprintf(b, "\n\nCall Stack:\n%s", debug.Stack())
 
-	log.Log("event", "panic", "location", location, "panicLog", b.Name())
-	fmt.Fprintf(os.Stderr, "panicWithStack: wrote %s\n", b.Name())
+	log.Log("event", "panic", "location", location, "panicLog", b.Name(), "err", err)
 
 	return errors.Wrap(b.Close(), "LogPanic: failed to close dump file")
 }
