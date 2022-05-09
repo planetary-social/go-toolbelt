@@ -9,40 +9,32 @@ import (
 )
 
 func TestMillisecsUnmarshall(t *testing.T) {
+	var v Millisecs
 
-	v := struct {
-		Timestamp Millisecs
-	}{}
-
-	err := json.Unmarshal([]byte(`{"Timestamp":1449808143436}`), &v)
+	err := json.Unmarshal([]byte(`1449808143436`), &v)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if n := time.Time(v.Timestamp).Sub(time.Unix(1449808143436/1000, 0)); n != 0 {
-		t.Fatal(fmt.Errorf("times not equal:%d", n))
+	if n := time.Time(v).Sub(time.UnixMilli(1449808143436)); n != 0 {
+		t.Fatal(fmt.Errorf("times not equal: %v", n))
 	}
 }
 
-// SSBQuirk
 func TestFloats(t *testing.T) {
+	var v Millisecs
 
-	v := struct {
-		Timestamp Millisecs
-	}{}
-
-	err := json.Unmarshal([]byte(`{"Timestamp":1553708494043.0059}`), &v)
+	err := json.Unmarshal([]byte(`1553708494043.0059`), &v)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if n := time.Time(v.Timestamp).Sub(time.Unix(15537084940430059/1000, 0)); n != 0 {
-		t.Fatal(fmt.Errorf("times not equal:%d", n))
+	if n := time.Time(v).Sub(time.UnixMilli(1553708494043)); n != 0 {
+		t.Fatal(fmt.Errorf("times not equal: %v", n))
 	}
 }
 
 func TestMillisecsMarshal(t *testing.T) {
-
 	v := struct {
 		Date Millisecs
 	}{Millisecs(time.Unix(12345, 0))}
